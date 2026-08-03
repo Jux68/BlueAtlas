@@ -1,8 +1,8 @@
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const KEY = 'blueatlas-alpha-081';
-const CACHE_BUST = 'ba-100';
+const CACHE_BUST = 'ba-110';
 
 const spots = [
   { id:'palombaggia', name:'Palombaggia', region:'Corse-du-Sud', habitat:'Herbiers et rochers', icon:'🌿' },
@@ -34,7 +34,7 @@ const species = [
   {id:'crabe',name:'Crabe marbré',latin:'Pachygrapsus marmoratus',group:'Crustacé',habitat:'Rochers superficiels',biome:'Roche',prob:55,img:'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Pachygrapsus_marmoratus_2009_G1.jpg/640px-Pachygrapsus_marmoratus_2009_G1.jpg',desc:'Crabe rapide des rochers battus par les vagues, visible tout près de la surface.',similar:['oursin']}
 ];
 
-const defaultState = () => ({version:VERSION,expeditions:[],observations:[],activeExpeditionId:null,selectedTab:'home',seenWhatsNew:false,region:'Corse'});
+const defaultState = () => ({version:VERSION,expeditions:[],observations:[],activeExpeditionId:null,selectedTab:'home',seenWhatsNew:false,region:'Corse',atlasFilter:'all',atlasBiome:'all',atlasSort:'prob',atlasSearch:'',favoriteSpecies:[]});
 let state = load();
 let modal = null;
 let currentIdentifyId = null;
@@ -47,6 +47,11 @@ function load(){
       x.selectedTab=x.selectedTab||'home';
       x.seenWhatsNew=Boolean(x.seenWhatsNew);
       x.region=x.region||'Corse';
+      x.atlasFilter=x.atlasFilter||'all';
+      x.atlasBiome=x.atlasBiome||'all';
+      x.atlasSort=x.atlasSort||'prob';
+      x.atlasSearch=x.atlasSearch||'';
+      x.favoriteSpecies=Array.isArray(x.favoriteSpecies)?x.favoriteSpecies:[];
       return x;
     }
   }catch(e){console.warn('BlueAtlas storage',e)}
@@ -65,6 +70,9 @@ function active(){return state.expeditions.find(e=>e.id===state.activeExpedition
 function imageForSpecies(sid){const own=[...state.observations].reverse().find(o=>o.speciesId===sid&&o.photo);return own?.photo||sp(sid)?.img||''}
 function obsForSpecies(sid){return state.observations.filter(o=>o.speciesId===sid).sort((a,b)=>a.createdAt-b.createdAt)}
 function biomeStats(){const seen=discovered();return ['Herbier','Roche','Sable','Pleine eau'].map(name=>{const all=species.filter(s=>s.biome===name);const count=all.filter(s=>seen.has(s.id)).length;return {name,count,total:all.length,pct:all.length?Math.round(count/all.length*100):0,icon:{Herbier:'🌿',Roche:'🪨',Sable:'🏖️','Pleine eau':'🌊'}[name]}})}
+function rarity(s){if(s.prob<=15)return {label:'Exceptionnelle',cls:'legendary'};if(s.prob<=30)return {label:'Rare',cls:'rare'};if(s.prob<=60)return {label:'Peu commune',cls:'uncommon'};return {label:'Commune',cls:'common'}}
+function lastObsTime(id){const os=obsForSpecies(id);return os.length?os[os.length-1].createdAt:0}
+function atlasGoal(){const bs=biomeStats().filter(b=>b.count<b.total).sort((a,b)=>(a.total-a.count)-(b.total-b.count))[0];if(!bs)return 'Tous les écosystèmes pilotes sont complétés.';const left=bs.total-bs.count;return `Plus que ${left} espèce${left>1?'s':''} pour compléter ${bs.name.toLowerCase()}.`}
 function expeditionTitle(e){const os=expObs(e.id), ids=[...new Set(os.map(o=>o.speciesId).filter(Boolean))];const rare=ids.map(sp).filter(Boolean).sort((a,b)=>a.prob-b.prob)[0];const hour=new Date(e.startedAt).getHours();if(rare&&rare.prob<=25)return `La rencontre avec ${rare.name}`;if(hour<9)return `Lumière du matin à ${e.spot}`;if(os.length>=12)return `Grande exploration à ${e.spot}`;return `Les eaux de ${e.spot}`}
 function expeditionStory(e){const os=expObs(e.id), ids=[...new Set(os.map(o=>o.speciesId).filter(Boolean))];const pending=os.filter(o=>!o.speciesId).length;const rare=ids.map(sp).filter(Boolean).sort((a,b)=>a.prob-b.prob)[0];let text=`Tu as exploré ${esc(e.spot||'la Corse')} pendant ${duration(e)} et capturé ${os.length} souvenir${os.length>1?'s':''}. `;if(ids.length)text+=`${ids.length} espèce${ids.length>1?'s ont':' a'} rejoint ton récit. `;if(rare)text+=`La rencontre marquante : ${esc(rare.name)}. `;if(pending)text+=`${pending} photo${pending>1?'s restent':' reste'} à identifier.`;return text}
 
@@ -106,26 +114,34 @@ function reefScene(){const seen=[...discovered()].map(sp).filter(Boolean).slice(
 
 function atlas(){
   const seen=discovered(), biomes=biomeStats();
+  const q=(state.atlasSearch||'').trim().toLowerCase();
+  let list=species.filter(s=>{
+    if(state.atlasFilter==='seen'&&!seen.has(s.id))return false;
+    if(state.atlasFilter==='unseen'&&seen.has(s.id))return false;
+    if(state.atlasFilter==='favorite'&&!state.favoriteSpecies.includes(s.id))return false;
+    if(state.atlasBiome!=='all'&&s.biome!==state.atlasBiome)return false;
+    return !q||[s.name,s.latin,s.group,s.habitat,s.desc].join(' ').toLowerCase().includes(q);
+  });
+  list.sort((a,b)=>state.atlasSort==='name'?a.name.localeCompare(b.name,'fr'):state.atlasSort==='rare'?a.prob-b.prob:state.atlasSort==='recent'?lastObsTime(b.id)-lastObsTime(a.id):b.prob-a.prob);
   return shell(`<div class="topbar"><div><div class="eyebrow">Ta collection vivante</div><h1>Mon Atlas</h1></div><span class="count">${seen.size}/${species.length}</span></div>
   ${reefScene()}
+  <article class="card atlas-goal"><div class="goal-icon">🧭</div><div><div class="eyebrow">Prochain objectif</div><b>${atlasGoal()}</b></div></article>
   <div class="section-title"><h2>Écosystèmes</h2><span>Progression</span></div>
-  <div class="biome-grid">${biomes.map(b=>`<article class="card biome-card"><div class="biome-icon">${b.icon}</div><div><b>${b.name}</b><small>${b.count}/${b.total} espèces</small></div><div class="progress"><i style="width:${b.pct}%"></i></div><strong>${b.pct}%</strong></article>`).join('')}</div>
-  <div class="section-title"><h2>Cartes d’espèces</h2><span>${seen.size} découvertes</span></div>
-  <div class="species-grid">${species.map((s,i)=>`<article class="card species clickable ${seen.has(s.id)?'':'locked'}" data-species="${s.id}"><img src="${seen.has(s.id)?imageForSpecies(s.id):s.img}" alt="${esc(s.name)}"><div class="species-body"><small>#${String(i+1).padStart(3,'0')} · ${esc(s.biome)}</small><h3>${seen.has(s.id)?esc(s.name):'Espèce à découvrir'}</h3><small>${seen.has(s.id)?esc(s.latin):esc(s.habitat)}</small></div></article>`).join('')}</div>`)
+  <div class="biome-grid">${biomes.map(b=>`<button class="card biome-card ${state.atlasBiome===b.name?'selected':''}" data-atlas-biome="${b.name}"><div class="biome-icon">${b.icon}</div><div><b>${b.name}</b><small>${b.count}/${b.total} espèces</small></div><div class="progress"><i style="width:${b.pct}%"></i></div><strong>${b.pct}%</strong></button>`).join('')}</div>
+  <div class="atlas-tools card"><input class="field" id="atlasSearch" value="${esc(state.atlasSearch)}" placeholder="Rechercher une espèce, un habitat…"><div class="filter-row">${[['all','Toutes'],['seen','Découvertes'],['unseen','À découvrir'],['favorite','Favorites']].map(([id,l])=>`<button class="filter-chip ${state.atlasFilter===id?'active':''}" data-atlas-filter="${id}">${l}</button>`).join('')}</div><div class="sort-row"><button class="filter-chip ${state.atlasBiome==='all'?'active':''}" data-atlas-biome="all">Tous les milieux</button><select class="field compact" id="atlasSort"><option value="prob" ${state.atlasSort==='prob'?'selected':''}>Plus probables</option><option value="rare" ${state.atlasSort==='rare'?'selected':''}>Plus rares</option><option value="recent" ${state.atlasSort==='recent'?'selected':''}>Observées récemment</option><option value="name" ${state.atlasSort==='name'?'selected':''}>Nom A–Z</option></select></div></div>
+  <div class="section-title"><h2>Cartes d’espèces</h2><span>${list.length} affichée${list.length>1?'s':''}</span></div>
+  ${list.length?`<div class="species-grid premium">${list.map(s=>{const r=rarity(s),isSeen=seen.has(s.id),fav=state.favoriteSpecies.includes(s.id),os=obsForSpecies(s.id);return `<article class="card species premium-card clickable ${isSeen?'':'locked'}" data-species="${s.id}"><div class="species-photo"><img src="${imageForSpecies(s.id)}" alt="${esc(s.name)}"><span class="rarity ${r.cls}">${r.label}</span>${fav?'<span class="favorite-mark">★</span>':''}</div><div class="species-body"><small>${esc(s.biome)} · ${s.prob}% indicatif</small><h3>${esc(s.name)}</h3><small><i>${esc(s.latin)}</i></small><div class="species-meta"><span>${isSeen?`${os.length} rencontre${os.length>1?'s':''}`:'Pas encore rencontrée'}</span><span>${isSeen?'Découverte':'À découvrir'}</span></div></div></article>`}).join('')}</div>`:'<div class="card empty">Aucune espèce ne correspond à ces filtres.</div>'}`)
 }
-
 function journal(){const exps=[...state.expeditions].sort((a,b)=>b.startedAt-a.startedAt);return shell(`<div class="topbar"><div><div class="eyebrow">Tes histoires sous-marines</div><h1>Journal</h1></div><span class="count">${exps.length}</span></div>${exps.length?exps.map(expeditionCard).join(''):'<div class="card empty">Commence une expédition pour créer ton premier souvenir.</div>'}`)}
 
 function profile(){return shell(`<div class="topbar"><div><div class="eyebrow">Ton espace</div><h1>Profil</h1></div><button class="version-pill" id="versionBtn">v${VERSION}</button></div><div class="card profile-hero"><div style="display:flex;gap:15px;align-items:center"><div class="profile-avatar">J</div><div><h2 style="margin-bottom:4px">Julien</h2><p class="muted" style="margin:0">Explorateur sous-marin · ${esc(state.region)}</p></div></div><div class="stats"><div class="stat"><strong>${state.expeditions.length}</strong><span>expéditions</span></div><div class="stat"><strong>${discovered().size}</strong><span>espèces</span></div><div class="stat"><strong>${state.observations.filter(o=>o.photo).length}</strong><span>photos</span></div></div></div><div class="card"><h3>Protéger mes souvenirs</h3><p class="muted">Crée une sauvegarde avant un changement important de version ou d’adresse.</p><button class="btn block" id="exportBtn">Exporter mes données</button><button class="btn block secondary" id="restoreBtn" style="margin-top:10px">Restaurer une sauvegarde</button></div><div class="card"><h3>Application</h3><p>BlueAtlas Alpha <b>v${VERSION}</b></p><p class="muted">Données stockées uniquement sur cet appareil.</p><button class="btn block danger" id="resetBtn">Effacer toutes les données</button></div><div class="version">Chaque observation raconte une histoire.</div>`)}
 
 function terrain(){const e=active();if(!e)return home();const os=expObs(e.id),pending=os.filter(o=>!o.speciesId).length;return `<section class="terrain"><div class="terrain-bg"></div><div class="terrain-ui"><div class="terrain-head"><div><b>${esc(e.spot||'Expédition')}</b><div class="timer" id="timer">${duration(e)}</div></div><div class="terrain-counter">📷 ${os.length} &nbsp; ❓ ${pending}</div></div><div class="terrain-center"><button class="shutter" id="terrainCamera" aria-label="Capturer un souvenir"><span>📷</span></button><div class="capture-label">Capturer un souvenir</div></div><div class="terrain-foot"><button class="btn secondary small" id="terrainLibrary">Photothèque</button><button class="btn danger small" id="finishExp">Terminer</button></div></div></section>`}
 
-function versionModal(){modal=`<div class="modal"><div class="sheet"><button class="btn secondary small" data-close>Fermer</button><div class="eyebrow" style="margin-top:16px">BlueAtlas Alpha</div><h1>Version ${VERSION}</h1><p class="muted">Sprint Expedition First.</p><div class="card whats-new"><h3>Nouveautés</h3><ul><li>Accueil centré sur l’expédition active.</li><li>Mode Terrain encore plus minimal et lisible.</li><li>Explorer repensé autour de grandes photos.</li><li>Atlas vivant avec écosystèmes animés.</li><li>Fiches espèces enrichies de ton histoire personnelle.</li><li>Journal narratif et titres automatiques.</li></ul></div><button class="btn block" data-close>Continuer l’exploration</button></div></div>`;state.seenWhatsNew=true;save();render()}
-
+function versionModal(){modal=`<div class="modal"><div class="sheet"><button class="btn secondary small" data-close>Fermer</button><div class="eyebrow" style="margin-top:16px">BlueAtlas Alpha</div><h1>Version ${VERSION}</h1><p class="muted">Sprint MarineDex Premium.</p><div class="card whats-new"><h3>Nouveautés</h3><ul><li>Recherche et filtres avancés dans l’Atlas.</li><li>Tri par probabilité, rareté, date et nom.</li><li>Cartes premium avec rareté et historique personnel.</li><li>Espèces favorites et objectif d’écosystème.</li><li>Navigation directe par habitat.</li></ul></div><button class="btn block" data-close>Continuer l’exploration</button></div></div>`;state.seenWhatsNew=true;save();render()}
 function startExpeditionModal(){modal=`<div class="modal"><div class="sheet"><button class="btn secondary small" data-close>Annuler</button><div class="eyebrow" style="margin-top:16px">Nouvelle aventure</div><h1>Où explores-tu ?</h1><p class="muted">Le spot sera associé automatiquement à toutes les photos de cette expédition.</p><div class="spot-grid">${spots.map(s=>`<button class="spot-choice" data-spot="${s.id}"><span>${s.icon}</span><div><b>${esc(s.name)}</b><small>${esc(s.habitat)}</small></div><i>›</i></button>`).join('')}</div></div></div>`;render()}
 
-function speciesModal(sid){const s=sp(sid),os=obsForSpecies(sid),first=os[0],last=os[os.length-1];modal=`<div class="modal"><div class="sheet"><button class="btn secondary small" data-close>Fermer</button><img src="${imageForSpecies(sid)}" alt="${esc(s.name)}" style="margin-top:12px"><h1 style="margin-top:16px">${esc(s.name)}</h1><p><i>${esc(s.latin)}</i></p><span class="chip">${esc(s.group)}</span><span class="chip">${esc(s.habitat)}</span><span class="chip">${s.prob}% indicatif</span><p style="margin-top:15px">${esc(s.desc)}</p><div class="personal-story"><div><small>Première rencontre</small><b>${first?fmtDate(first.createdAt):'À découvrir'}</b><span>${first?esc(first.spot||'Corse'):'—'}</span></div><div><small>Dernière rencontre</small><b>${last?fmtDate(last.createdAt):'—'}</b><span>${os.length} observation${os.length>1?'s':''}</span></div></div><h3>Espèces ressemblantes</h3><div class="similar-row">${s.similar.map(id=>{const x=sp(id);return x?`<button class="similar" data-species="${x.id}"><img src="${x.img}" alt="${esc(x.name)}"><span>${esc(x.name)}</span></button>`:''}).join('')}</div><h3>Tes rencontres (${os.length})</h3>${os.length?os.slice().reverse().map(o=>`<div class="timeline-item">${o.photo?`<img src="${o.photo}">`:''}<div><b>${fmtDate(o.createdAt)}</b><div class="muted">${esc(o.spot||'Corse-du-Sud')}</div></div></div>`).join(''):'<p class="muted">Pas encore observée.</p>'}</div></div>`;render()}
-
+function speciesModal(sid){const s=sp(sid),os=obsForSpecies(sid),first=os[0],last=os[os.length-1],fav=state.favoriteSpecies.includes(sid),r=rarity(s);modal=`<div class="modal"><div class="sheet"><div class="sheet-actions"><button class="btn secondary small" data-close>Fermer</button><button class="favorite-toggle ${fav?'active':''}" data-favorite-species="${sid}" aria-label="Ajouter aux favorites">${fav?'★':'☆'}</button></div><img src="${imageForSpecies(sid)}" alt="${esc(s.name)}" style="margin-top:12px"><div class="species-title-row"><div><h1 style="margin:16px 0 4px">${esc(s.name)}</h1><p style="margin:0"><i>${esc(s.latin)}</i></p></div><span class="rarity ${r.cls}">${r.label}</span></div><span class="chip">${esc(s.group)}</span><span class="chip">${esc(s.habitat)}</span><span class="chip">${s.prob}% indicatif</span><p style="margin-top:15px">${esc(s.desc)}</p><div class="personal-story"><div><small>Première rencontre</small><b>${first?fmtDate(first.createdAt):'À découvrir'}</b><span>${first?esc(first.spot||'Corse'):'—'}</span></div><div><small>Dernière rencontre</small><b>${last?fmtDate(last.createdAt):'—'}</b><span>${os.length} observation${os.length>1?'s':''}</span></div></div><h3>Espèces ressemblantes</h3><div class="similar-row">${s.similar.map(id=>{const x=sp(id);return x?`<button class="similar" data-species="${x.id}"><img src="${x.img}" alt="${esc(x.name)}"><span>${esc(x.name)}</span></button>`:''}).join('')}</div><h3>Tes rencontres (${os.length})</h3>${os.length?os.slice().reverse().map(o=>`<div class="timeline-item">${o.photo?`<img src="${o.photo}">`:''}<div><b>${fmtDate(o.createdAt)}</b><div class="muted">${esc(o.spot||'Corse-du-Sud')}</div></div></div>`).join(''):'<p class="muted">Pas encore observée.</p>'}</div></div>`;render()}
 function identifyModal(oid){const o=state.observations.find(x=>x.id===oid);if(!o)return;currentIdentifyId=oid;modal=`<div class="modal"><div class="sheet"><button class="btn secondary small" data-close>Fermer</button><img src="${o.photo}" alt="Photo à identifier" style="margin-top:12px"><h2 style="margin-top:16px">Quelle espèce est-ce ?</h2><input class="field" id="speciesSearch" placeholder="Rechercher une espèce"><div id="candidates">${candidateList('')}</div></div></div>`;render();setTimeout(()=>document.getElementById('speciesSearch')?.focus(),30)}
 function candidateList(q){const qq=q.trim().toLowerCase();return species.filter(s=>!qq||[s.name,s.latin,s.group,s.habitat,s.desc].join(' ').toLowerCase().includes(qq)).sort((a,b)=>b.prob-a.prob).map(s=>`<button class="candidate" data-choose-species="${s.id}"><img src="${s.img}"><div class="grow"><b>${esc(s.name)}</b><div class="muted"><i>${esc(s.latin)}</i> · ${s.prob}%</div></div><span>›</span></button>`).join('')}
 
@@ -141,6 +157,9 @@ function bind(){
   document.querySelectorAll('[data-species]').forEach(b=>b.onclick=()=>speciesModal(b.dataset.species));
   document.querySelectorAll('[data-open-exp]').forEach(b=>b.onclick=()=>expeditionModal(b.dataset.openExp));
   document.querySelectorAll('[data-identify]').forEach(b=>b.onclick=()=>identifyModal(b.dataset.identify));
+  document.querySelectorAll('[data-atlas-filter]').forEach(b=>b.onclick=()=>{state.atlasFilter=b.dataset.atlasFilter;save();render()});
+  document.querySelectorAll('[data-atlas-biome]').forEach(b=>b.onclick=()=>{state.atlasBiome=b.dataset.atlasBiome;save();render()});
+  document.querySelectorAll('[data-favorite-species]').forEach(b=>b.onclick=()=>{const id=b.dataset.favoriteSpecies;state.favoriteSpecies=state.favoriteSpecies.includes(id)?state.favoriteSpecies.filter(x=>x!==id):[...state.favoriteSpecies,id];save();speciesModal(id)});
   document.querySelectorAll('[data-spot]').forEach(b=>b.onclick=()=>{const s=spots.find(x=>x.id===b.dataset.spot);let spot=s.name;if(s.id==='other')spot=prompt('Nom du spot','Plage de Corse')||'Corse';const id=uid('exp');state.expeditions.push({id,spot,region:s.region,title:null,startedAt:Date.now(),endedAt:null});state.activeExpeditionId=id;state.selectedTab='terrain';modal=null;save();render()});
   document.getElementById('versionBtn')?.addEventListener('click',versionModal);
   document.getElementById('startExp')?.addEventListener('click',()=>{if(active()){state.selectedTab='terrain';save();render()}else startExpeditionModal()});
@@ -149,6 +168,8 @@ function bind(){
   document.getElementById('addLibrary')?.addEventListener('click',()=>{if(!active()){alert('Démarre une expédition avant d’ajouter des photos.');return}document.getElementById('libraryInput').click()});
   document.getElementById('finishExp')?.addEventListener('click',()=>{const e=active();if(e&&confirm('Terminer cette expédition ?')){e.endedAt=Date.now();e.title=expeditionTitle(e);state.activeExpeditionId=null;state.selectedTab='journal';save();expeditionModal(e.id)}});
   document.getElementById('speciesSearch')?.addEventListener('input',e=>{document.getElementById('candidates').innerHTML=candidateList(e.target.value);bindCandidates()});
+  document.getElementById('atlasSearch')?.addEventListener('input',e=>{state.atlasSearch=e.target.value;save();render()});
+  document.getElementById('atlasSort')?.addEventListener('change',e=>{state.atlasSort=e.target.value;save();render()});
   bindCandidates();
   document.getElementById('exportBtn')?.addEventListener('click',exportData);
   document.getElementById('restoreBtn')?.addEventListener('click',()=>document.getElementById('restoreInput').click());
