@@ -1,12 +1,13 @@
 {
-  "name":"BlueAtlas Alpha",
-  "short_name":"BlueAtlas",
-  "start_url":"./",
-  "display":"standalone",
-  "background_color":"#041827",
-  "theme_color":"#041827",
-  "description":"Compagnon d'exploration sous-marine pour le snorkeling.",
-  "icons":[
+  "name": "BlueAtlas Alpha",
+  "short_name": "BlueAtlas",
+  "description": "Ton compagnon d'exploration sous-marine.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#041827",
+  "theme_color": "#041827",
+  "icons": [
     {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
     {"src":"icon-512.png","sizes":"512x512","type":"image/png"}
   ]
