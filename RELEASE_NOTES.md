@@ -1,13 +1,15 @@
-# BlueAtlas Alpha 1.2.0 — Discoveries Workflow
+# BlueAtlas Alpha 1.4.0 — Collections & Progression
 
 ## Nouveautés
-- Une découverte plein écran à la fois.
-- Trois suggestions prioritaires selon le spot et la fréquence d’observation.
-- Comparaison côte à côte entre la photo utilisateur et la photo de référence.
-- Validation en statut Confirmée, Probable ou À revoir.
-- Saisie facultative de profondeur, taille estimée et notes.
-- Passage automatique à la photo suivante.
-- Tableau de progression des identifications après la sortie.
 
-## Compatibilité
-Les données de la version 1.1.0 sont conservées grâce à la même clé de stockage locale.
+- Huit collections naturalistes : habitats, céphalopodes, échinodermes, crustacés et rencontres rares.
+- Progression automatique calculée depuis les observations confirmées.
+- Vue détaillée des espèces découvertes et restant à rechercher.
+- Objectif intelligent sur la collection la plus proche d’être complétée.
+- Niveau personnel d’explorateur dans le profil.
+- Synthèse globale de progression de l’Atlas.
+- Compatibilité avec les données des versions précédentes.
+
+## Déploiement
+
+Tous les fichiers sont plats et peuvent être envoyés directement à la racine de GitHub Pages.
