@@ -1,17 +1,22 @@
-# BlueAtlas Alpha 1.5.0 — Spots & Exploration
+# BlueAtlas Alpha 1.6.0 — Field Naturalist
 
 ## Nouveautés
 
-- Guide de sept spots de snorkeling en Corse-du-Sud.
-- Carte schématique interactive accessible depuis l’accueil.
-- Fiches détaillées : habitats, difficulté, visibilité, accès et meilleur moment.
-- Parcours conseillé pour chaque spot.
-- Espèces probables calculées selon les habitats du lieu.
-- Historique personnel par spot : expéditions, souvenirs et espèces rencontrées.
-- Spots favoris.
-- Démarrage direct d’une expédition depuis une fiche de spot.
-- Compatibilité avec les données des versions précédentes.
+- Ajout d’une rencontre sans photo personnelle.
+- Recherche rapide d’une espèce depuis l’Atlas ou le Profil.
+- Trois états lisibles dans l’Atlas : à découvrir, observée, photographiée.
+- Photo de référence utilisée tant qu’aucune photo personnelle n’existe.
+- Historique distinguant première rencontre et première photographie.
+- Défi personnel « à photographier » pour les espèces seulement observées.
+- Statistiques séparées : espèces rencontrées et espèces photographiées.
+- Ajout de l’Aiguillette / Orphie (*Belone belone*) au catalogue pilote.
+- Données et sauvegardes des versions précédentes conservées.
 
-## Déploiement
+## Scénario de test
 
-Tous les fichiers sont plats et peuvent être envoyés directement à la racine de GitHub Pages.
+1. Ouvrir l’Atlas.
+2. Appuyer sur **+ Rencontre**.
+3. Rechercher « aiguillette ».
+4. Choisir « observée avec certitude », la date et le spot.
+5. Vérifier que la carte devient visible avec le badge œil.
+6. Vérifier que la fiche affiche « Pas encore photographiée ».
