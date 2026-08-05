@@ -1,10 +1,9 @@
-BlueAtlas Alpha 1.4.0 — Collections & Progression
+BlueAtlas Alpha 1.5.0 — Spots & Exploration
 
 Déploiement GitHub Pages :
-1. Exporter une sauvegarde depuis BlueAtlas.
-2. Décompresser l’archive.
-3. Envoyer tous les fichiers à la racine du dépôt.
-4. Commit suggéré : release: BlueAtlas Alpha 1.4.0 Collections
-5. Attendre le déploiement GitHub Pages puis actualiser Safari.
+1. Envoyer tous les fichiers à la racine du dépôt.
+2. Remplacer les anciens fichiers portant le même nom.
+3. Commit conseillé : release: BlueAtlas Alpha 1.5.0 Spots
+4. Actualiser Safari après publication.
 
-Aucun dossier et aucun build ne sont nécessaires.
+Les données locales des versions précédentes restent compatibles.
